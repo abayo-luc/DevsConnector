@@ -19,14 +19,17 @@ const db = require("./config/keys").mongoURI;
 
 //Connect to MongoDB
 mongoose
-  .connect(db)
+  .connect(
+    db,
+    { useNewUrlParser: true }
+  )
   .then(() => console.log("mongo db connected"))
   .catch(error => console.log(error));
 
 // passport midlleware
 app.use(passport.initialize());
 //passport config
-require("./config/passport.js")(passport);
+require("./config/passport")(passport);
 app.use("/api/users", users);
 app.use("/api/profile", profile);
 app.use("/api/posts", posts);
