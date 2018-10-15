@@ -1,5 +1,6 @@
 {
                           "editor.fontSize": 26,
                           "terminal.integrated.fontSize": 26,
-                          "markdown.preview.fontSize": 26
+                          "markdown.preview.fontSize": 26,
+                          "editor.suggestFontSize": 26
 }
