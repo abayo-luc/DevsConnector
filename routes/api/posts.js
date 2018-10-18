@@ -121,27 +121,25 @@ router.delete(
 // @desc like a post
 // @access  protected
 router.post(
-  "/like/:id",
+  "/likes/:id",
   passport.authenticate("jwt", { session: false }),
   (req, res) => {
-    Profile.findOne({ user: req.user.id }).then(profile => {
-      Post.findById(req.params.id)
-        .then(post => {
-          let currentUserLike = post.likes.indexOf(
-            post.likes.find(like => like.user.toString() === req.user.id)
-          );
-          if (currentUserLike >= 0) {
-            post.likes.splice(currentUserLike, 1);
-          } else {
-            post.likes.unshift({ user: req.user.id });
-          }
-          post
-            .save()
-            .then(post => res.json(post))
-            .catch(err => res.status(404).json({ post: "Like failed" }));
-        })
-        .catch(err => res.status(404).json(err));
-    });
+    Post.findById(req.params.id)
+      .then(post => {
+        let currentUserLike = post.likes.indexOf(
+          post.likes.find(like => like.user.toString() === req.user.id)
+        );
+        if (currentUserLike >= 0) {
+          post.likes.splice(currentUserLike, 1);
+        } else {
+          post.likes.unshift({ user: req.user.id });
+        }
+        post
+          .save()
+          .then(post => res.json(post))
+          .catch(err => res.status(404).json({ post: "Like failed" }));
+      })
+      .catch(err => res.status(404).json(err));
   }
 );
 
@@ -190,34 +188,32 @@ router.delete(
   "/:id/comments/:commentId",
   passport.authenticate("jwt", { session: false }),
   (req, res) => {
-    Profile.findOne({ user: req.user.id }).then(profile => {
-      Post.findById(req.params.id)
-        .then(post => {
-          const { commentId } = req.params;
-          let theComment = post.comment.find(com => {
-            return (
-              com["_id"].toString() === commentId &&
-              com.user.toString() === req.user.id
-            );
-          });
-          let theIndex = post.comment.indexOf(theComment);
-          if (theIndex < 0) {
-            return res.status(404).json({ comment: "Comment doesn't exist" });
-          }
-          post.comment.splice(theIndex, 1);
-          post
-            .save()
-            .then(post => res.json(post))
-            .catch(err => {
-              console.log(err);
-              res.status(400).json({ err: "Comment was unable to be deleted" });
-            });
-        })
-        .catch(err => {
-          console.log(err);
-          res.status(400).json({ err: "Post not found" });
+    Post.findById(req.params.id)
+      .then(post => {
+        const { commentId } = req.params;
+        let theComment = post.comment.find(com => {
+          return (
+            com["_id"].toString() === commentId &&
+            com.user.toString() === req.user.id
+          );
         });
-    });
+        let theIndex = post.comment.indexOf(theComment);
+        if (theIndex < 0) {
+          return res.status(404).json({ comment: "Comment doesn't exist" });
+        }
+        post.comment.splice(theIndex, 1);
+        post
+          .save()
+          .then(post => res.json(post))
+          .catch(err => {
+            console.log(err);
+            res.status(400).json({ err: "Comment was unable to be deleted" });
+          });
+      })
+      .catch(err => {
+        console.log(err);
+        res.status(400).json({ err: "Post not found" });
+      });
   }
 );
 // @route Patch api/posts/comments/:id
