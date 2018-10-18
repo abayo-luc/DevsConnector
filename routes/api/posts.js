@@ -11,6 +11,7 @@ const Profile = require("../../models/Profile");
 
 //bring in validation
 const InvalidatePostput = require("../../validation/post");
+const validateCommentInput = require("../../validation/comment");
 
 // @route Post api/posts
 // @desc create new post router
@@ -40,7 +41,7 @@ router.post(
 // @route Update api/posts
 // @desc update a specific post router
 // @access  protected
-router.put(
+router.patch(
   "/:id",
   passport.authenticate("jwt", { session: false }),
   (req, res) => {
@@ -60,7 +61,13 @@ router.put(
       { $set: postFields },
       { new: true }
     )
-      .then(post => res.json(post))
+      .then(post => {
+        if (!post) {
+          errors.post = "post not found";
+          return res.status(400).json(errors);
+        }
+        res.json(post);
+      })
       .catch(err => {
         errors.post = "Post not found";
         res.status(404).json(errors);
@@ -120,15 +127,14 @@ router.post(
     Profile.findOne({ user: req.user.id }).then(profile => {
       Post.findById(req.params.id)
         .then(post => {
-          if (
-            post.likes.filter(like => like.user.toString() === req.user.id)
-              .length > 0
-          ) {
-            return res
-              .status(400)
-              .json({ alreadyLiked: "User already liked this post" });
+          let currentUserLike = post.likes.indexOf(
+            post.likes.find(like => like.user.toString() === req.user.id)
+          );
+          if (currentUserLike >= 0) {
+            post.likes.splice(currentUserLike, 1);
+          } else {
+            post.likes.unshift({ user: req.user.id });
           }
-          post.likes.unshift({ user: req.user.id });
           post
             .save()
             .then(post => res.json(post))
@@ -136,6 +142,127 @@ router.post(
         })
         .catch(err => res.status(404).json(err));
     });
+  }
+);
+
+// @route Post api/posts/comments/:id
+// @desc comment a post
+// @access  protected
+router.post(
+  "/:id/comments",
+  passport.authenticate("jwt", { session: false }),
+  (req, res) => {
+    const { errors, isValid } = validateCommentInput(req.body);
+    if (!isValid) {
+      return res.status(400).json(errors);
+    }
+
+    Post.findById(req.params.id)
+      .then(post => {
+        //create a comment
+        const newComment = {
+          text: req.body.text,
+          name: req.user.name,
+          avatar: req.user.avatar,
+          user: req.user.id
+        };
+        post.comment.unshift(newComment);
+        post
+          .save()
+          .then(post => res.json(post))
+          .catch(err => {
+            errors.comment = "Comment failed";
+            res.status(400).json(errors);
+          });
+      })
+      .catch(err => {
+        //send an eror
+        errors.post = "No post found";
+        res.status(404).json(errors);
+      });
+  }
+);
+
+// @route Delete api/posts/comments/:id
+// @desc comment a delete
+// @access  protected
+router.delete(
+  "/:id/comments/:commentId",
+  passport.authenticate("jwt", { session: false }),
+  (req, res) => {
+    Profile.findOne({ user: req.user.id }).then(profile => {
+      Post.findById(req.params.id)
+        .then(post => {
+          const { commentId } = req.params;
+          let theComment = post.comment.find(com => {
+            return (
+              com["_id"].toString() === commentId &&
+              com.user.toString() === req.user.id
+            );
+          });
+          let theIndex = post.comment.indexOf(theComment);
+          if (theIndex < 0) {
+            return res.status(404).json({ comment: "Comment doesn't exist" });
+          }
+          post.comment.splice(theIndex, 1);
+          post
+            .save()
+            .then(post => res.json(post))
+            .catch(err => {
+              console.log(err);
+              res.status(400).json({ err: "Comment was unable to be deleted" });
+            });
+        })
+        .catch(err => {
+          console.log(err);
+          res.status(400).json({ err: "Post not found" });
+        });
+    });
+  }
+);
+// @route Patch api/posts/comments/:id
+// @desc comment edit
+// @access  protected
+router.patch(
+  "/:id/comments/:commentId",
+  passport.authenticate("jwt", { session: false }),
+  (req, res) => {
+    const { errors, isValid } = validateCommentInput(req.body);
+    if (!isValid) {
+      return res.status(400).json(errors);
+    }
+    Post.findById(req.params.id)
+      .then(post => {
+        const newComment = {
+          text: req.body.text,
+          name: req.user.name,
+          avatar: req.user.avatar,
+          user: req.user.id
+        };
+        const { commentId } = req.params;
+        let theComment = post.comment.find(com => {
+          return (
+            com["_id"].toString() === commentId &&
+            com.user.toString() === req.user.id
+          );
+        });
+        let theIndex = post.comment.indexOf(theComment);
+        if (theIndex < 0) {
+          return res.status(404).json({ comment: "Comment doesn't exist" });
+        }
+        post.comment[theIndex] = newComment;
+        post
+          .save()
+          .then(post => res.json(post))
+          .catch(err => {
+            console.log(err);
+            res.status(400).json({ err: "Comment was unable to be updated" });
+          });
+      })
+      .catch(err => {
+        console.log(err);
+        res.status(400).json({ err: "Post not found" });
+      });
   }
 );
 module.exports = router;
